@@ -1,12 +1,7 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http.Headers;
-using System.Numerics;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
@@ -18,8 +13,8 @@ namespace VertexGenerator
         public HashSet<CubeDelta> Deltas { get; }
         public int Id { get; private set; }
         private volatile bool _paged = false;
-        private object _lock = new object();
 
+        #region StaticConstructor
         static CubeForm()
         {
             DefaultMatrix = new Vertex[3, 3, 3];
@@ -96,15 +91,21 @@ namespace VertexGenerator
             // top level, south eastern corner
             matrix[0, 2, 2] = new Vertex(1, -1, 1);
         }
+        #endregion
 
         private static readonly Vertex[,,] DefaultMatrix;
         private CubeForm(Vertex[,,] matrix)
         {
             _matrix = matrix;
-            Deltas = new List<CubeDelta>();
+            Deltas = new HashSet<CubeDelta>();
             _paged = false;
         }
 
+        /// <summary>
+        /// Create all valid permutations for a current index, async to load from disk if data has been paged
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
         public async Task<IEnumerable<CubeForm>> PermutateAsync(Index index)
         {
             if (_paged)
@@ -140,13 +141,47 @@ namespace VertexGenerator
 
             }
 
-            foreach (var mutation in vertex.GetMutations(validDirections))
+            foreach (var mutationTuple in vertex.GetMutations(validDirections))
             {
+                //TODO: here we only modify a vertex, when in reality we need to modify the X,Y,Z +/- 1 depending
+                // so that we maintain the same distance between points
+                var mutation = mutationTuple.Item1;
                 if (mutation != vertex)
                 {
-                    var newCube = CopyAndMutate(ref index, mutation);
                     var valueDelta = vertex.CalculateVectorDelta(mutation);
-                    var delta = new CubeDelta(this, valueDelta, index, newCube);
+                    var nextIndex = index.CalculateIndexForMutation(mutationTuple.Item2, valueDelta);
+                    if (nextIndex.Equals(Index.OutOfBoundsIndex))
+                    {
+                        // If we go out of bounds, we would *Create* a cube, explore that later.
+                        continue;
+                    }
+
+                    // Now that we know what the next vertex should be, we access it and see if we can apply the same change to it.
+                    var nextVertex = _matrix[nextIndex.X, nextIndex.Y, nextIndex.Z];
+                    var modifiedNextVertex = nextVertex.CoMutate(valueDelta);
+                    var coMutatedDelta = nextVertex.CalculateVectorDelta(modifiedNextVertex);
+
+                    // We never want a vertex to exceed the next vertex or the bounds, as it will cause a mesh to double back on itself
+                    // so if they are too close (within 10% of each other on any axis) we should destroy the cube if all the values fall below a certain value
+                    // or redirect the impact depending on the material type. This is the most difficult part of this because a 'soil' should self level. This is to be explored later.
+                    if (Vertex.DistanceIsAboveThreshold(modifiedNextVertex, mutation))
+                    {
+                        continue;
+                    }
+
+
+                    // creates tuples for so we can create the next cube from the mutated values
+                    // then create the delta link so we know the differences between thw two
+                    var newVerticesByIndex = new ValueTuple<Index, Vertex>[2];
+                    newVerticesByIndex[0] = new ValueTuple<Index, Vertex>(index, mutation);
+                    newVerticesByIndex[1] = new ValueTuple<Index, Vertex>(nextIndex, nextVertex);
+
+                    var deltasByIndex = new ValueTuple<Index, UtilityVector3>[2];
+                    deltasByIndex[0] = new ValueTuple<Index, UtilityVector3>(index, valueDelta);
+                    deltasByIndex[1] = new ValueTuple<Index, UtilityVector3>(nextIndex, coMutatedDelta);
+
+                    var newCube = CopyAndMutate(newVerticesByIndex);
+                    var delta = new CubeDelta(this, deltasByIndex, newCube);
                     newCube.Id = Id + 1;
                     newCube.Deltas.Add(delta);
                     this.Deltas.Add(delta);
@@ -155,6 +190,10 @@ namespace VertexGenerator
             }
         }
 
+        /// <summary>
+        /// write the matrix to json
+        /// </summary>
+        /// <returns></returns>
         public async Task Page()
         {
             if (_paged) return;
@@ -163,6 +202,10 @@ namespace VertexGenerator
             _matrix = null;
         }
 
+        /// <summary>
+        /// Load the cube data from json
+        /// </summary>
+        /// <returns></returns>
         private async Task Unpage()
         {
             if (!_paged) return;
@@ -171,184 +214,30 @@ namespace VertexGenerator
             _paged = false;
         }
 
-        private CubeForm CopyAndMutate(ref Index index, Vertex vertex)
+        /// <summary>
+        /// create a copy of the current matrix with the mutations
+        /// </summary>
+        /// <param name="deltasByIndex"></param>
+        /// <returns></returns>
+        private CubeForm CopyAndMutate(IEnumerable<ValueTuple<Index, Vertex>> deltasByIndex)
         {
             var matrix = new Vertex[3,3,3];
             _matrix.CopyTo(matrix, 0);
-            matrix[index.X, index.Y, index.Z] = vertex;
+            foreach (var delta in deltasByIndex)
+            {
+                var index = delta.Item1;
+                _matrix[index.X, index.Y, index.Z] = delta.Item2;
+            }
             return new CubeForm(matrix);
         }
 
+        /// <summary>
+        /// Default cube that fills the entire region
+        /// </summary>
+        /// <returns></returns>
         public static CubeForm Default()
         {
             return new CubeForm(DefaultMatrix);
-        }
-
-        private readonly struct Vertex : IEnumerable<float>, IEquatable<Vertex>
-        {
-            public readonly UtilityFloat X;
-            public readonly UtilityFloat Y;
-            public readonly UtilityFloat Z;
-            private const float StepValue = 0.04f; // 2 cm, on a 200 unit scale because we do -1 to + 1
-
-            public Vertex(float x, float y, float z)
-            {
-                X = x;
-                Y = y;
-                Z = z;
-            }
-
-            public Vector3 CalculateVectorDelta(Vertex other)
-            {
-                return new Vector3(Math.Abs(X - other.X), Math.Abs(Y - other.Y), Math.Abs(Z - other.Y));
-            }
-
-            private Vertex xPerpendicularIncrease()
-            {
-                if (X + StepValue <= 1)
-                {
-                    return new Vertex(X + StepValue, Y, Z);
-                }
-
-                return new Vertex(X, Y, Z);
-            }
-
-            private Vertex xPerpendicularDecrease()
-            {
-                if (X + StepValue >= -1)
-                {
-                    return new Vertex(X - StepValue, Y, Z);
-                }
-
-                return new Vertex(X, Y, Z);
-            }
-
-            private Vertex yPerpendicularIncrease()
-            {
-                if (Y + StepValue <= 1)
-                {
-                    return new Vertex(X, Y + StepValue, Z);
-                }
-
-                return new Vertex(X, Y, Z);
-            }
-
-            private Vertex yPerpendicularDecrease()
-            {
-                if (Y - StepValue >= -1)
-                {
-                    return new Vertex(X, Y - StepValue, Z);
-                }
-
-                return new Vertex(X, Y, Z);
-            }
-
-            private Vertex zPerpendicularIncrease()
-            {
-                if (Z + StepValue <= 1)
-                {
-                    return new Vertex(X, Y, Z + StepValue);
-                }
-
-                return new Vertex(X, Y, Z);
-            }
-
-            private Vertex zPerpendicularDecrease()
-            {
-                if (Z - StepValue >= -1)
-                {
-                    return new Vertex(X, Y, Z - StepValue);
-                }
-
-                return new Vertex(X, Y, Z);
-            }
-
-            public IEnumerator<float> GetEnumerator()
-            {
-                return CreateEnumerator().GetEnumerator();
-            }
-
-            private IEnumerable<float> CreateEnumerator()
-            {
-                yield return X;
-                yield return Y;
-                yield return Z;
-            }
-
-            IEnumerator IEnumerable.GetEnumerator()
-            {
-                return GetEnumerator();
-            }
-
-            public bool Equals(Vertex other)
-            {
-                return X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z);
-            }
-
-            public override bool Equals(object obj)
-            {
-                return obj is Vertex other && Equals(other);
-            }
-
-            public override int GetHashCode()
-            {
-                return HashCode.Combine(X, Y, Z);
-            }
-
-            public static bool operator ==(Vertex a, Vertex b)
-            {
-                return a.Equals(b);
-            }
-
-            public static bool operator !=(Vertex a, Vertex b)
-            {
-                return !(a == b);
-            }
-
-            public IEnumerable<Vertex> GetMutations(Span<bool> validDirections)
-            {
-                if (validDirections[0])
-                {
-                    yield return this.xPerpendicularIncrease();
-                    yield return this.xPerpendicularDecrease();
-                }
-
-                if (validDirections[1])
-                {
-                    yield return this.yPerpendicularIncrease();
-                    yield return this.yPerpendicularDecrease();
-                }
-
-                if (validDirections[2])
-                {
-                    yield return this.zPerpendicularIncrease();
-                    yield return this.zPerpendicularDecrease();
-                }
-
-                if (validDirections[0] && validDirections[1])
-                {
-                    yield return this.xPerpendicularIncrease().yPerpendicularIncrease();
-                    yield return this.xPerpendicularIncrease().yPerpendicularDecrease();
-                    yield return this.xPerpendicularDecrease().yPerpendicularIncrease();
-                    yield return this.xPerpendicularDecrease().yPerpendicularDecrease();
-                }
-
-                if (validDirections[1] && validDirections[2])
-                {
-                    yield return this.yPerpendicularIncrease().zPerpendicularIncrease();
-                    yield return this.yPerpendicularIncrease().zPerpendicularDecrease();
-                    yield return this.yPerpendicularDecrease().zPerpendicularIncrease();
-                    yield return this.yPerpendicularDecrease().zPerpendicularDecrease();
-                }
-
-                if (validDirections[0] && validDirections[2])
-                {
-                    yield return this.xPerpendicularIncrease().zPerpendicularIncrease();
-                    yield return this.xPerpendicularIncrease().zPerpendicularDecrease();
-                    yield return this.xPerpendicularDecrease().zPerpendicularIncrease();
-                    yield return this.xPerpendicularDecrease().zPerpendicularDecrease();
-                }
-            }
         }
     }
 }

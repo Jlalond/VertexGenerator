@@ -5,6 +5,9 @@ using System.Text;
 
 namespace VertexGenerator
 {
+    /// <summary>
+    /// Class to handle easy conversion from int and float as well as simpler comparison semantics
+    /// </summary>
     public readonly struct UtilityFloat : IEquatable<float>, IEquatable<int>
     {
         private readonly float _value;

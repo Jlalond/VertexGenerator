@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Numerics;
 using System.Text;
 
@@ -7,33 +9,16 @@ namespace VertexGenerator
 {
     public class CubeDelta : IEquatable<CubeDelta>
     {
-        public CubeDelta(CubeForm origin, Vector3 delta, Index vertexIndex, CubeForm newValue)
+        public CubeDelta(CubeForm origin, IList<ValueTuple<Index, UtilityVector3>> deltasByValue, CubeForm newValue)
         {
             Origin = origin;
-            ValueDelta = delta;
-            MatrixIndex = vertexIndex;
+            DeltasByIndex = new ReadOnlyCollection<(Index, UtilityVector3)>(deltasByValue);
             NewValue = newValue;
         }
 
         public CubeForm Origin { get; }
-        public Vector3 ValueDelta { get; }
-        public Index MatrixIndex { get; }
+        public IReadOnlyCollection<ValueTuple<Index, UtilityVector3>> DeltasByIndex { get; }
         public CubeForm NewValue { get; }
-
-        public bool Equals(CubeDelta other)
-        {
-            if (ReferenceEquals(null, other))
-            {
-                return false;
-            }
-
-            if (ReferenceEquals(this, other))
-            {
-                return true;
-            }
-
-            return Equals(Origin, other.Origin) && ValueDelta.Equals(other.ValueDelta) && MatrixIndex.Equals(other.MatrixIndex) && Equals(NewValue, other.NewValue);
-        }
 
         public override bool Equals(object obj)
         {
@@ -57,7 +42,22 @@ namespace VertexGenerator
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Origin, ValueDelta, MatrixIndex);
+            return HashCode.Combine(Origin, DeltasByIndex.Select(t => t.Item1.GetHashCode() + t.Item2.GetHashCode()));
+        }
+
+        public bool Equals(CubeDelta other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return Equals(Origin, other.Origin) && Equals(DeltasByIndex, other.DeltasByIndex) && Equals(NewValue, other.NewValue);
         }
     }
 }
