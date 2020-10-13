@@ -13,7 +13,7 @@ namespace VertexGenerator
     public class MetaMaterial
     {
         /// <summary>
-        /// Identify if a cube form is valid per 
+        /// Identify if a cube form is valid, can be overriden
         /// </summary>
         /// <param name="inCubeForm"></param>
         /// <param name="delta"></param>
@@ -21,6 +21,8 @@ namespace VertexGenerator
         /// <returns></returns>
         public virtual bool IsValid(CubeForm inCubeForm, out CubeDelta delta, out CubeForm newCube)
         {
+            // default impl is just that no vertex passes a vertex that should be greater or lesser than itself.
+            // I.E., the middle vertex shouldn't be drawn so that's actually the farthest X
             var matrixCopy = inCubeForm.ReadOnlyMatrix;
             delta = null;
             newCube = null;
@@ -32,16 +34,23 @@ namespace VertexGenerator
                     {
                         if (x - 1 > -1 && matrixCopy[x,y,z].X > matrixCopy[x -1, y, z].X)
                         {
-                            return false; // the vertex to the west of us has a value putting it to the east of us.
+                            return false; // the vertex to the west of us has a x value that puts it to the east of us.
                         }
 
-                        if (y - 1 > -1 && matrixCopy[x, y, z].Y < matrixCopy[x, y - 1, z].Y)
+                        if (y - 1 > -1 && matrixCopy[x, y, z].Y > matrixCopy[x, y - 1, z].Y)
                         {
                             return false; // the vertex to the north of us, has a y value putting it to the south of us
+                        }
+
+                        if (z - 1 > -1 && matrixCopy[x, y, z].Z > matrixCopy[x, y, z - 1].Z)
+                        {
+                            return false;
                         }
                     }
                 }
             }
+
+            return true;
         }
     }
 }

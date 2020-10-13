@@ -21,7 +21,7 @@ So for 3d, we will need 3 rows of 2d matrices
 ![alt text](ZChart.png)
 We express all cube data as matrix entries increasing on the Z axis.
 
-#Design
+# Design
 The above defines what a cube is within the context of this tool, but to express the design we need to redefine a cube in a more abstract sense
 
 A **Cube** is both a cube of geometric shape, in that all sides are equal, but that it is also the mesh that takes up a percent of that space
