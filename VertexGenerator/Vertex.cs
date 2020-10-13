@@ -191,10 +191,5 @@ namespace VertexGenerator
                 yield return (this.xPerpendicularDecrease().zPerpendicularDecrease(), MutationEnum.XZ);
             }
         }
-
-        private static Vertex ResolveIndex(Index index, Vertex[,,] matrix)
-        {
-            return matrix[index.X, index.Y, index.Z];
-        }
     }
 }

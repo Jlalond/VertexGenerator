@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
@@ -10,8 +11,10 @@ namespace VertexGenerator
     public class CubeForm
     {
         private Vertex[,,] _matrix;
+        public Vertex[,,] ReadOnlyMatrix => (Vertex[,,]) _matrix.Clone();
         public HashSet<CubeDelta> Deltas { get; }
-        public int Id { get; private set; }
+        public List<string> CubeFormMetaData { get; }
+        public int Id { get; private set; } // implicitly is set to 0 for the first cube
         private volatile bool _paged = false;
 
         #region StaticConstructor
@@ -28,68 +31,68 @@ namespace VertexGenerator
             // Z Up/Down
             // Y North South
             // X W (-1) - E (1)
-            //bottom level, North West corner
-            matrix[0, 0, 0] = new Vertex(-1, 1, -1);
-            // bottom level, Northern Middle vertex
-            matrix[0, 0, 1] = new Vertex(0, 1, -1);
-            // bottom level, North East Corner
-            matrix[0, 0, 2] = new Vertex(1, 1, -1);
-            // bottom level, Western Middle Index
-            matrix[0, 1, 0] = new Vertex(-1, 0, -1);
-            // bottom level, Middle face index
-            matrix[0, 1, 1] = new Vertex(0, 0, -1);
-            // bottom level, Eastern middle Index
-            matrix[0, 1, 2] = new Vertex(1, 0, -1);
-            // bottom level, South West Corner
-            matrix[0, 2, 0] = new Vertex(-1,-1,-1);
+            // bottom level, south west corner
+            matrix[0,0,0] = new Vertex(-1, -1, -1);
             // bottom level, southern edge
-            matrix[0, 2, 1] = new Vertex(0, -1, -1);
-            // bottom level, south eastern corner
-            matrix[0, 2, 2] = new Vertex(1, -1, -1);
+            matrix[0,0,1] = new Vertex(0, -1, -1);
+            // bottom level, south east corner
+            matrix[0,0,2] = new Vertex(1, -1, -1);
+            // bottom level, middle row, western edge
+            matrix[0,1,0] = new Vertex(-1, 0, -1);
+            // bottom level, middle row, middle index
+            matrix[0,1,1] = new Vertex(0, 0, -1);
+            // bottom level, middle row, eastern edge
+            matrix[0,1,2] = new Vertex(1, 0, -1);
+            // bottom level, top row, western edge
+            matrix[0,2,0] = new Vertex(-1, 1, -1);
+            // bottom level, top row, middle index
+            matrix[0,2,1] = new Vertex(0, 1, -1);
+            // bottom level, top row, eastern corner
+            matrix[0,2,2] = new Vertex(1, 1, -1);
         }
 
         static void Middle(Vertex[,,] matrix)
         {
-            //middle level, North West corner
-            matrix[0, 0, 0] = new Vertex(-1, 1, 0);
-            // middle level, Northern Middle vertex
-            matrix[0, 0, 1] = new Vertex(0, 1, 0);
-            // middle level, North East Corner
-            matrix[0, 0, 2] = new Vertex(1, 1, 0);
-            // middle level, Western Middle Index
-            matrix[0, 1, 0] = new Vertex(-1, 0, 0);
-            // middle level, Middle face index
-            matrix[0, 1, 1] = new Vertex(0, 0, 0);
-            // middle level, Eastern middle Index
-            matrix[0, 1, 2] = new Vertex(1, 0, 0);
-            // middle level, South West Corner
-            matrix[0, 2, 0] = new Vertex(-1, -1, 0);
+            // middle level, south west corner
+            matrix[0, 0, 0] = new Vertex(-1, -1, 0);
             // middle level, southern edge
-            matrix[0, 2, 1] = new Vertex(0, -1, 0);
-            // middle level, south eastern corner
-            matrix[0, 2, 2] = new Vertex(1, -1, 0);
+            matrix[0, 0, 1] = new Vertex(0, -1, 0);
+            // middle level, south east corner
+            matrix[0, 0, 2] = new Vertex(1, -1, 0);
+            // middle level, middle row, western edge
+            matrix[0, 1, 0] = new Vertex(-1, 0, 0);
+            // middle level, middle row, middle index
+            matrix[0, 1, 1] = new Vertex(0, 0, 0);
+            // middle level, middle row, eastern edge
+            matrix[0, 1, 2] = new Vertex(1, 0, 0);
+            // middle level, top row, western edge
+            matrix[0, 2, 0] = new Vertex(-1, 1, 0);
+            // middle level, top row, middle index
+            matrix[0, 2, 1] = new Vertex(0, 1, 0);
+            // middle level, top row, eastern corner
+            matrix[0, 2, 2] = new Vertex(1, 1, 0);
         }
 
         static void Top(Vertex[,,] matrix)
         {
-            //top level, North West corner
-            matrix[0, 0, 0] = new Vertex(-1, 1, 1);
-            // top level, Northern top vertex
-            matrix[0, 0, 1] = new Vertex(0, 1, 1);
-            // top level, North East Corner
-            matrix[0, 0, 2] = new Vertex(1, 1, 1);
-            // top level, Western top Index
+            // middle level, south west corner
+            matrix[0, 0, 0] = new Vertex(-1, -1, 1);
+            // middle level, southern edge
+            matrix[0, 0, 1] = new Vertex(0, -1, 1);
+            // middle level, south east corner
+            matrix[0, 0, 2] = new Vertex(1, -1, 1);
+            // middle level, middle row, western edge
             matrix[0, 1, 0] = new Vertex(-1, 0, 1);
-            // top level, top face index
+            // middle level, middle row, middle index
             matrix[0, 1, 1] = new Vertex(0, 0, 1);
-            // top level, Eastern top Index
+            // middle level, middle row, eastern edge
             matrix[0, 1, 2] = new Vertex(1, 0, 1);
-            // top level, South West Corner
-            matrix[0, 2, 0] = new Vertex(-1, -1, 1);
-            // top level, southern edge
-            matrix[0, 2, 1] = new Vertex(0, -1, 1);
-            // top level, south eastern corner
-            matrix[0, 2, 2] = new Vertex(1, -1, 1);
+            // middle level, top row, western edge
+            matrix[0, 2, 0] = new Vertex(-1, 1, 1);
+            // middle level, top row, middle index
+            matrix[0, 2, 1] = new Vertex(0, 1, 1);
+            // middle level, top row, eastern corner
+            matrix[0, 2, 2] = new Vertex(1, 1, 1);
         }
         #endregion
 

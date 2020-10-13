@@ -7,6 +7,9 @@ using System.Text;
 
 namespace VertexGenerator
 {
+    /// <summary>
+    /// Class to denote the difference between two cubes, allowing a cube to know the next cubestate, as well as the prior
+    /// </summary>
     public class CubeDelta : IEquatable<CubeDelta>
     {
         public CubeDelta(CubeForm origin, IList<ValueTuple<Index, UtilityVector3>> deltasByValue, CubeForm newValue)
@@ -16,9 +19,23 @@ namespace VertexGenerator
             NewValue = newValue;
         }
 
+        /// <summary>
+        /// The progenitor cube
+        /// </summary>
         public CubeForm Origin { get; }
+        /// <summary>
+        /// A read only set of deltas by index
+        /// </summary>
         public IReadOnlyCollection<ValueTuple<Index, UtilityVector3>> DeltasByIndex { get; }
+        /// <summary>
+        /// a reference to the new cube it will generate
+        /// </summary>
         public CubeForm NewValue { get; }
+
+        /// <summary>
+        /// Metadata collection for a cube delta, I.E. is this an after affect of a prior cube state
+        /// </summary>
+        public List<string> DeltaMetaData { get; }
 
         public override bool Equals(object obj)
         {
@@ -42,6 +59,7 @@ namespace VertexGenerator
 
         public override int GetHashCode()
         {
+            // new cube is skipped so we can't accidentally generate two identical copies of the same new cube on a diagonal mutation
             return HashCode.Combine(Origin, DeltasByIndex.Select(t => t.Item1.GetHashCode() + t.Item2.GetHashCode()));
         }
 
