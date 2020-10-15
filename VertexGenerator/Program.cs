@@ -5,6 +5,8 @@ using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
+using VertexGenerator.Cubes;
+using Index = VertexGenerator.Utilities.Index;
 
 namespace VertexGenerator
 {

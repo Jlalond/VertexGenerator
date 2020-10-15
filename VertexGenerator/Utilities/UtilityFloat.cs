@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Text;
 
-namespace VertexGenerator
+namespace VertexGenerator.Utilities
 {
     /// <summary>
     /// Class to handle easy conversion from int and float as well as simpler comparison semantics

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace VertexGenerator
+﻿namespace VertexGenerator.Cubes
 {
     /// <summary>
     /// Enum to signify how a vertex was mutated

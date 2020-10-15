@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using VertexGenerator.Utilities;
+using Index = VertexGenerator.Utilities.Index;
 
-namespace VertexGenerator
+namespace VertexGenerator.Cubes
 {
     public class CubeForm
     {
@@ -129,7 +130,7 @@ namespace VertexGenerator
 
             var vertex = _matrix[index.X, index.Y, index.Z];
             // ReSharper disable once SuggestVarOrType_Elsewhere
-            Span<bool> validDirections = stackalloc bool[3];
+            var validDirections = new bool[3];
             var i = 0;
             foreach (var value in index)
             {
@@ -141,7 +142,6 @@ namespace VertexGenerator
                 {
                     validDirections[i] = false;
                 }
-
             }
 
             foreach (var mutationTuple in vertex.GetMutations(validDirections))

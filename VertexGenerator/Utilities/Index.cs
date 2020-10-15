@@ -1,11 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
+using VertexGenerator.Cubes;
 
-namespace VertexGenerator
+namespace VertexGenerator.Utilities
 {
     public readonly struct Index : IEnumerable<int>, IEquatable<Index>
     {
@@ -18,6 +16,22 @@ namespace VertexGenerator
             X = x;
             Y = y;
             Z = z;
+        }
+
+        /// <summary>
+        /// Get all eight neighbor indexes on the current plane Clockwise
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<Index> GetNeighborsOnCurrentPlane()
+        {
+            yield return YNext(); // North
+            yield return YNext().XNext(); // North East
+            yield return XNext(); // East
+            yield return XNext().YPrior(); // SouthEast
+            yield return YPrior(); // South
+            yield return YPrior().XPrior(); // SW
+            yield return XPrior(); // to the west
+            yield return XPrior().YNext(); // North West;
         }
 
         public IEnumerator<int> GetEnumerator()

@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 
-namespace VertexGenerator
+namespace VertexGenerator.Utilities
 {
     /// <summary>
     /// Utility struct to give me the delta as an array along with other helper methods

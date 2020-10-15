@@ -2,10 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
-using System.Text;
+using VertexGenerator.Utilities;
 
-namespace VertexGenerator
+namespace VertexGenerator.Cubes
 {
     public readonly struct Vertex : IEnumerable<float>, IEquatable<Vertex>
     {
@@ -147,7 +146,7 @@ namespace VertexGenerator
         }
         #endregion
 
-        public IEnumerable <(Vertex,MutationEnum)> GetMutations(Span<bool> validDirections)
+        public IEnumerable <(Vertex,MutationEnum)> GetMutations(bool[] validDirections)
         {
             if (validDirections[0])
             {

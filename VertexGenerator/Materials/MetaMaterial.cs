@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using VertexGenerator.Cubes;
+using VertexGenerator.Utilities;
 
-namespace VertexGenerator
+namespace VertexGenerator.Materials
 {
     /// <summary>
     /// Class to denote a behavior of a material in the cube space,
@@ -13,36 +11,39 @@ namespace VertexGenerator
     public class MetaMaterial
     {
         /// <summary>
-        /// Identify if a cube form is valid, can be overriden
+        /// Identify if a cube form is valid
         /// </summary>
         /// <param name="inCubeForm"></param>
-        /// <param name="delta"></param>
-        /// <param name="newCube"></param>
+        /// <param name="transforms">The ordered lists of transforms up until now</param>
         /// <returns></returns>
-        public virtual bool IsValid(CubeForm inCubeForm, out CubeDelta delta, out CubeForm newCube)
+        protected virtual bool IsValid(CubeForm inCubeForm, MetaMaterialTransformations transforms)
+        {
+            return true;
+        }
+
+        private static bool DefaultValid(CubeForm inCubeForm)
         {
             // default impl is just that no vertex passes a vertex that should be greater or lesser than itself.
             // I.E., the middle vertex shouldn't be drawn so that's actually the farthest X
             var matrixCopy = inCubeForm.ReadOnlyMatrix;
-            delta = null;
-            newCube = null;
             for (int x = 0; x < matrixCopy.Length; x++)
             {
                 for (int y = 0; y < matrixCopy.Length; y++)
                 {
                     for (int z = 0; z < matrixCopy.Length; z++)
                     {
-                        if (x - 1 > -1 && matrixCopy[x,y,z].X > matrixCopy[x -1, y, z].X)
+                        var current = new Index(x, y, z);
+                        if (matrixCopy.TryGetXPrior(current, out var xPrior) && xPrior.X < matrixCopy.At(current).X)
                         {
                             return false; // the vertex to the west of us has a x value that puts it to the east of us.
                         }
 
-                        if (y - 1 > -1 && matrixCopy[x, y, z].Y > matrixCopy[x, y - 1, z].Y)
+                        if (matrixCopy.TryGetYNext(current, out var yPrior) && yPrior.Y < matrixCopy.At(current).Y)
                         {
                             return false; // the vertex to the north of us, has a y value putting it to the south of us
                         }
 
-                        if (z - 1 > -1 && matrixCopy[x, y, z].Z > matrixCopy[x, y, z - 1].Z)
+                        if (matrixCopy.TryGetZNext(current, out var zPrior) && zPrior.Z < matrixCopy.At(current).Z)
                         {
                             return false;
                         }
@@ -51,6 +52,12 @@ namespace VertexGenerator
             }
 
             return true;
+        }
+
+        public bool IsValidCubeForm(CubeForm inCubeForm, out MetaMaterialTransformations transformations)
+        {
+            transformations = new MetaMaterialTransformations(inCubeForm);
+            return DefaultValid(inCubeForm) && IsValid(inCubeForm, transformations);
         }
     }
 }

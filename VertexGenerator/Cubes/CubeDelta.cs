@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Numerics;
-using System.Text;
+using VertexGenerator.Utilities;
+using Index = VertexGenerator.Utilities.Index;
 
-namespace VertexGenerator
+namespace VertexGenerator.Cubes
 {
     /// <summary>
     /// Class to denote the difference between two cubes, allowing a cube to know the next cubestate, as well as the prior
