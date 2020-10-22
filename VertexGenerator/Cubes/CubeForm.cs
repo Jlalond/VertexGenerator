@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using VertexGenerator.Materials;
 using VertexGenerator.Utilities;
 using Index = VertexGenerator.Utilities.Index;
 
@@ -11,20 +12,67 @@ namespace VertexGenerator.Cubes
 {
     public class CubeForm
     {
+        private const double volumeThreshold = 0.4; // 20% of a -1 <==> 1 plane
+
+        #region private static members
+
+        private static int _currentId;
+        private static readonly Vertex[,,] DefaultMatrix;
+
+        #endregion
+
+        #region private instance members
+
         private Vertex[,,] _matrix;
-        public Vertex[,,] ReadOnlyMatrix => (Vertex[,,]) _matrix.Clone();
-        public HashSet<CubeDelta> Deltas { get; }
-        public List<string> CubeFormMetaData { get; }
-        public int Id { get; private set; } // implicitly is set to 0 for the first cube
         private volatile bool _paged = false;
+        private HashSet<CubeDelta> _deltas;
+        private HashSet<MetaMaterial> _materials;
+
+        #endregion
+
+        #region public static
+
+        public static int NextId => _currentId++;
+
+        /// <summary>
+        /// Default cube that fills the entire region
+        /// </summary>
+        /// <returns></returns>
+        public static CubeForm Default { get; }
+
+        public static CubeForm InvalidCubeForm { get; }
+
+        #endregion
+
+        public IReadOnlyCollection<CubeDelta> Deltas => _deltas;
+        public IReadOnlyCollection<MetaMaterial> ValidMaterials => _materials;
+        public int Id { get; }
+        public Vertex[,,] ReadOnlyMatrix => CopyMatrix();
+        public bool IsValid => this == InvalidCubeForm;
+        public Vertex this[Index index] => _matrix.At(index);
+
+        public Vertex[,,] MatrixCopy => CopyMatrix();
+
+        /// <summary>
+        /// Get iterator for the matrix, starting from 0,0,0 and going forward
+        /// </summary>
+        public IEnumerable<ValueTuple<Index, Vertex>> ForwardIterator => _matrix.TraverseMatrix();
+
+        /// <summary>
+        /// Get iterator for matrix, starting from 2,2,2 and going backwards
+        /// </summary>
+        public IEnumerable<ValueTuple<Index, Vertex>> BackwardsIterator => _matrix.TraverseMatrix();
 
         #region StaticConstructor
+
         static CubeForm()
         {
             DefaultMatrix = new Vertex[3, 3, 3];
             Bottom(DefaultMatrix);
             Middle(DefaultMatrix);
             Top(DefaultMatrix);
+            Default = new CubeForm(DefaultMatrix);
+            InvalidCubeForm = new CubeForm(new Vertex[0, 0, 0]);
         }
 
         static void Bottom(Vertex[,,] matrix)
@@ -33,23 +81,23 @@ namespace VertexGenerator.Cubes
             // Y North South
             // X W (-1) - E (1)
             // bottom level, south west corner
-            matrix[0,0,0] = new Vertex(-1, -1, -1);
+            matrix[0, 0, 0] = new Vertex(-1, -1, -1);
             // bottom level, southern edge
-            matrix[0,0,1] = new Vertex(0, -1, -1);
+            matrix[0, 0, 1] = new Vertex(0, -1, -1);
             // bottom level, south east corner
-            matrix[0,0,2] = new Vertex(1, -1, -1);
+            matrix[0, 0, 2] = new Vertex(1, -1, -1);
             // bottom level, middle row, western edge
-            matrix[0,1,0] = new Vertex(-1, 0, -1);
+            matrix[0, 1, 0] = new Vertex(-1, 0, -1);
             // bottom level, middle row, middle index
-            matrix[0,1,1] = new Vertex(0, 0, -1);
+            matrix[0, 1, 1] = new Vertex(0, 0, -1);
             // bottom level, middle row, eastern edge
-            matrix[0,1,2] = new Vertex(1, 0, -1);
+            matrix[0, 1, 2] = new Vertex(1, 0, -1);
             // bottom level, top row, western edge
-            matrix[0,2,0] = new Vertex(-1, 1, -1);
+            matrix[0, 2, 0] = new Vertex(-1, 1, -1);
             // bottom level, top row, middle index
-            matrix[0,2,1] = new Vertex(0, 1, -1);
+            matrix[0, 2, 1] = new Vertex(0, 1, -1);
             // bottom level, top row, eastern corner
-            matrix[0,2,2] = new Vertex(1, 1, -1);
+            matrix[0, 2, 2] = new Vertex(1, 1, -1);
         }
 
         static void Middle(Vertex[,,] matrix)
@@ -95,14 +143,31 @@ namespace VertexGenerator.Cubes
             // middle level, top row, eastern corner
             matrix[0, 2, 2] = new Vertex(1, 1, 1);
         }
+
         #endregion
 
-        private static readonly Vertex[,,] DefaultMatrix;
         private CubeForm(Vertex[,,] matrix)
         {
             _matrix = matrix;
-            Deltas = new HashSet<CubeDelta>();
+            _deltas = new HashSet<CubeDelta>();
+            _materials = new HashSet<MetaMaterial>();
             _paged = false;
+            Id = NextId;
+        }
+
+        public static CubeForm Mutate(CubeForm cubeform, IList<ValueTuple<Index, UtilityVector3>> deltasByValue)
+        {
+            foreach (var change in deltasByValue)
+            {
+                cubeform._matrix.Update(change.Item1, cubeform._matrix.At(change.Item1).CoMutate(change.Item2));
+            }
+
+            if (!cubeform.IsValidCubeForm())
+            {
+                return InvalidCubeForm;
+            }
+
+            return cubeform;
         }
 
         /// <summary>
@@ -172,7 +237,6 @@ namespace VertexGenerator.Cubes
                         continue;
                     }
 
-
                     // creates tuples for so we can create the next cube from the mutated values
                     // then create the delta link so we know the differences between thw two
                     var newVerticesByIndex = new ValueTuple<Index, Vertex>[2];
@@ -183,13 +247,37 @@ namespace VertexGenerator.Cubes
                     deltasByIndex[0] = new ValueTuple<Index, UtilityVector3>(index, valueDelta);
                     deltasByIndex[1] = new ValueTuple<Index, UtilityVector3>(nextIndex, coMutatedDelta);
 
-                    var newCube = CopyAndMutate(newVerticesByIndex);
-                    var delta = new CubeDelta(this, deltasByIndex, newCube);
-                    newCube.Id = Id + 1;
-                    newCube.Deltas.Add(delta);
-                    this.Deltas.Add(delta);
+                    var newCube = CopyAndMutate(deltasByIndex);
+                    if (!AddCubeDelta(deltasByIndex, newCube))
+                    {
+                        continue;
+                    }
+
+                    MetaMaterialManager.CalculateMaterials(newCube);
+
                     yield return newCube;
                 }
+            }
+        }
+
+        public bool AddCubeDelta(IList<ValueTuple<Index, UtilityVector3>> deltas, CubeForm newCube)
+        {
+            var delta = new CubeDelta(this, deltas, newCube);
+            if (this.Deltas.Contains(delta) && newCube.IsValidCubeForm())
+            {
+                _deltas.Add(delta);
+                newCube._deltas.Add(delta);
+                return true;
+            }
+
+            return false;
+        }
+
+        public void AddMaterial(MetaMaterial material)
+        {
+            if (!this.IsValid)
+            {
+                _materials.Add(material);
             }
         }
 
@@ -205,6 +293,26 @@ namespace VertexGenerator.Cubes
             _matrix = null;
         }
 
+        public CubeForm CopyMatrixToNewCubeForm() => new CubeForm(CopyMatrix());
+
+        public IEnumerable<ValueTuple<Index, UtilityVector3>> CalculateDeltas(CubeForm other)
+        {
+            foreach (var indexTuple in _matrix.TraverseMatrix())
+            {
+                var vertex = indexTuple.Item2;
+                var otherVertex = other._matrix.At(indexTuple.Item1);
+                var delta = vertex.CalculateVectorDelta(otherVertex);
+                if (delta.IsNonZero)
+                {
+                    continue;
+                }
+
+                var tuple = new ValueTuple<Index, UtilityVector3>(indexTuple.Item1, delta);
+                yield return tuple;
+            }
+        }
+
+
         /// <summary>
         /// Load the cube data from json
         /// </summary>
@@ -217,30 +325,80 @@ namespace VertexGenerator.Cubes
             _paged = false;
         }
 
-        /// <summary>
-        /// create a copy of the current matrix with the mutations
-        /// </summary>
-        /// <param name="deltasByIndex"></param>
-        /// <returns></returns>
-        private CubeForm CopyAndMutate(IEnumerable<ValueTuple<Index, Vertex>> deltasByIndex)
+        private Vertex[,,] CopyMatrix()
         {
-            var matrix = new Vertex[3,3,3];
-            _matrix.CopyTo(matrix, 0);
-            foreach (var delta in deltasByIndex)
+            var matrix = new Vertex[3, 3, 3];
+            foreach (var indexTuple in _matrix.TraverseMatrix())
             {
-                var index = delta.Item1;
-                _matrix[index.X, index.Y, index.Z] = delta.Item2;
+                matrix.Update(indexTuple.Item1, indexTuple.Item2);
             }
-            return new CubeForm(matrix);
+
+            return matrix;
         }
 
         /// <summary>
-        /// Default cube that fills the entire region
+        /// create a copy of the current matrix with the mutations
+        /// </summary>
+        /// <param name="cubeDelta"></param>
+        /// <returns></returns>
+        private CubeForm CopyAndMutate(IList<ValueTuple<Index, UtilityVector3>> deltasByValue)
+        {
+            var copy = this.CopyMatrixToNewCubeForm();
+            return CubeForm.Mutate(copy, deltasByValue);
+        }
+
+        /// <summary>
+        /// Check if a cubeform should be considered invalid and marked for a deletion step
         /// </summary>
         /// <returns></returns>
-        public static CubeForm Default()
+        private bool IsValidCubeForm()
         {
-            return new CubeForm(DefaultMatrix);
+            var avg = 0.0;
+            // compare all vertices from opposite ends of the Z plane
+            for (int x = 0; x < _matrix.GetLength(0); x++)
+            {
+                for (int y = 0; y < _matrix.GetLength(0); y++)
+                {
+                    avg += Math.Abs(_matrix[x, y, 0].Z - _matrix[x, y, 2].Z);
+                }
+            }
+
+            if (avg < volumeThreshold)
+            {
+                return false;
+            }
+
+            avg = 0.0;
+
+            // compare all vertices in opposite ends of the X plane
+            for (int y = 0; y < _matrix.GetLength(0); y++)
+            {
+                for (int z = 0; z < _matrix.GetLength(0); z++)
+                {
+                    avg += Math.Abs(_matrix[0, y, z].X - _matrix[2, y, z].X);
+                }
+            }
+
+            if (avg < volumeThreshold)
+            {
+                return false;
+            }
+
+            for (int x = 0; x < _matrix.GetLength(0); x++)
+            {
+                for (int z = 0; z < _matrix.GetLength(0); z++)
+                {
+                    avg += Math.Abs(_matrix[x, 0, z].Y - _matrix[x, 2, z].Y);
+                }
+            }
+
+            if (avg < volumeThreshold)
+            {
+                return false;
+            }
+
+            return true;
         }
-    }
+
+    }   
 }

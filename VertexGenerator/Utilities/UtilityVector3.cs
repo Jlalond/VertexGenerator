@@ -7,7 +7,7 @@ namespace VertexGenerator.Utilities
     /// <summary>
     /// Utility struct to give me the delta as an array along with other helper methods
     /// </summary>
-    public readonly struct UtilityVector3 : IReadOnlyList<UtilityFloat>
+    public readonly struct UtilityVector3 : IReadOnlyList<UtilityFloat>, IEquatable<UtilityVector3>
     {
         public readonly UtilityFloat X;
         public readonly UtilityFloat Y;
@@ -19,6 +19,10 @@ namespace VertexGenerator.Utilities
             Y = y;
             Z = z;
         }
+
+        public bool IsZero => !this.Equals(default);
+
+        public bool IsNonZero => !IsZero;
 
         public IEnumerator<UtilityFloat> GetEnumerator()
         {
@@ -49,6 +53,21 @@ namespace VertexGenerator.Utilities
                 default:
                     throw new ArgumentException("Utility vector only supports 0-2");
             }
+        }
+
+        public bool Equals(UtilityVector3 other)
+        {
+            return X.Equals(other.X) && Y.Equals(other.Y) && Z.Equals(other.Z);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UtilityVector3 other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(X, Y, Z);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 using VertexGenerator.Cubes;
 
@@ -7,7 +8,7 @@ namespace VertexGenerator.Utilities
 {
     public static class MatrixExtensions
     {
-        public static IEnumerable<ValueTuple<Index, Vertex>> TraverseMatrix(this Vertex[,,] matrix, int planesToTraverse)
+        public static IEnumerable<ValueTuple<Index, Vertex>> TraverseMatrix(this Vertex[,,] matrix, int planesToTraverse = 3)
         {
             for (var x = 0; x < matrix.GetLength(0); x++)
             {
@@ -22,7 +23,12 @@ namespace VertexGenerator.Utilities
             }
         }
 
-        public static IEnumerable<ValueTuple<Index, Vertex>> TraverseMatrixBackwards(this Vertex[,,] matrix, int planesToTraverse)
+        public static void Update(this Vertex[,,] matrix, Index index, Vertex vertex)
+        {
+            matrix[index.X, index.Y, index.Z] = vertex;
+        }
+
+        public static IEnumerable<ValueTuple<Index, Vertex>> TraverseMatrixBackwards(this Vertex[,,] matrix, int planesToTraverse = 3)
         {
             var size = matrix.GetLength(0);
             for (var x = size; x > -1 && planesToTraverse > -1; x--, planesToTraverse--)
