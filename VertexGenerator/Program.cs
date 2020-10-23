@@ -16,23 +16,23 @@ namespace VertexGenerator
         private static readonly HashSet<CubeForm> AllCubeForms = new HashSet<CubeForm>();
         static void Main(string[] args)
         {
-            Task.Run(Calculate);
+            Calculate();
         }
 
 
-        private static async void Calculate()
+        private static void Calculate()
         {
-            var defaultCube = CubeForm.Default();
+            var defaultCube = CubeForm.Default;
             AllCubeForms.Add(defaultCube);
             while (AllCubeForms.Any())
             {
                 var first = AllCubeForms.First();
-                await CalculateModifications(first);
+                CalculateModifications(first);
                 AllCubeForms.Remove(first);
             }
         }
 
-        private static async Task CalculateModifications(CubeForm cube)
+        private static void CalculateModifications(CubeForm cube)
         {
             for (int x = 0; x < MatrixLength; x++)
             {
@@ -40,10 +40,11 @@ namespace VertexGenerator
                 {
                     for (int z = 0; z < MatrixLength; z++)
                     {
-                        var newCubes = await cube.PermutateAsync(new Index(x, y, z));
+                        var newCubes = cube.PermutateNewCube(new Index(x, y, z));
                         foreach (var newCube in newCubes)
                         {
-                            await newCube.Page();
+                            newCube.PrettyPrint();
+                            newCube.Page();
                             AllCubeForms.Add(newCube);
                         }
                     }

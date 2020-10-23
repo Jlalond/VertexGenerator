@@ -25,16 +25,16 @@ namespace VertexGenerator.Materials
         /// Determine if a cube is valid, or what indexes need to change
         /// </summary>
         /// <param name="cubeForm">Input cube</param>
-        /// <param name="invalidVertices"></param>
+        /// <param name="indexesOfInvalidVertices"></param>
         /// <returns>List of invalid vertices</returns>
-        public abstract bool IsValid(CubeForm cubeForm, out IReadOnlyCollection<Index> invalidVertices);
+        public abstract bool IsValid(CubeForm cubeForm, out IReadOnlyCollection<Index> indexesOfInvalidVertices);
 
         /// <summary>
         /// Return a new valid cube that derives from the parent cube
         /// </summary>
         /// <param name="cubeFormCopy"></param>
-        /// <param name="invalidVertices"></param>
+        /// <param name="indexesOfInvalidVertices"></param>
         /// <returns></returns>
-        public abstract CubeForm MakeValid(CubeForm cubeFormCopy, IReadOnlyCollection<Index> invalidVertices);
+        public abstract CubeForm MakeValid(CubeForm cubeFormCopy, IReadOnlyCollection<Index> indexesOfInvalidVertices);
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using VertexGenerator.Cubes;
 
 namespace VertexGenerator.Utilities
@@ -46,6 +47,8 @@ namespace VertexGenerator.Utilities
             return GetEnumerator();
         }
 
+        public bool OutOfBounds => this.Equals(OutOfBoundsIndex);
+
         /// <summary>
         /// Calculate what the corresponding vertex should be for the delta along a certain axis
         /// </summary>
@@ -89,6 +92,11 @@ namespace VertexGenerator.Utilities
                         temp = XPrior();
                     }
 
+                    if (temp.OutOfBounds)
+                    {
+                        return temp;
+                    }
+
                     if (delta.Y > 0)
                     {
                         return temp.YNext();
@@ -104,6 +112,11 @@ namespace VertexGenerator.Utilities
                     else
                     {
                         temp = XPrior();
+                    }
+
+                    if (temp.OutOfBounds)
+                    {
+                        return temp;
                     }
 
                     if (delta.Z > 0)
@@ -123,6 +136,11 @@ namespace VertexGenerator.Utilities
                         temp = YPrior();
                     }
 
+                    if (temp.OutOfBounds)
+                    {
+                        return temp;
+                    }
+
                     if (delta.Z > 0)
                     {
                         return temp.ZNext();
@@ -134,36 +152,42 @@ namespace VertexGenerator.Utilities
             }
         }
 
+        #region Index to Vertex
+        // This is an especially confusing section,
+        // because our cube is based around a normal, our XYZ values in the vertex DO NOT correlate to their index values
+        // I,E, X should decrease you increase in the z dimension of the matrix. I.E. [0,0,0].X < [0,0,1].X
+        // And [1,0,0].Z > [0,0,0].Z
+
         /// <summary>
-        /// return the next index plus one X value, or itself
+        /// Returns the next index of the data matrix that accompanies an increase in X 
         /// </summary>
         /// <returns></returns>
         public Index XNext()
         {
-            if (X + 1 > 2)
+            if (Z + 1 > 2)
             {
                 return OutOfBoundsIndex;
             }
 
-            return new Index(X + 1, Y, Z);
+            return new Index(X, Y, Z + 1);
         }
 
         /// <summary>
-        /// Return the index one minus x value, or out of bounds vertex
+        /// Returns the next index of the data matrix that accompanies an decrease in Z
         /// </summary>
         /// <returns></returns>
         public Index XPrior()
         {
-            if (X - 1 < -1)
+            if (Z - 1 < 0)
             {
                 return OutOfBoundsIndex;
             }
 
-            return new Index(X - 1, Y, Z);
+            return new Index(X, Y, Z - 1);
         }
 
         /// <summary>
-        /// return the next index plus one Y value, or out of bounds vertex
+        /// Returns the next index of the data matrix that accompanies an increase in Y
         /// </summary>
         /// <returns></returns>
         public Index YNext()
@@ -177,12 +201,12 @@ namespace VertexGenerator.Utilities
         }
 
         /// <summary>
-        /// Return the index one minus Y value, or out of bounds vertex
+        /// Returns the next index of the data matrix that accompanies an decrease in Y
         /// </summary>
         /// <returns></returns>
         public Index YPrior()
         {
-            if (Y - 1 < -1)
+            if (Y - 1 < 0)
             {
                 return OutOfBoundsIndex;
             }
@@ -191,32 +215,33 @@ namespace VertexGenerator.Utilities
         }
 
         /// <summary>
-        /// return the next index plus one Z value, or out of bounds vertex
+        /// Returns the next index of the data matrix that accompanies an increase in Z
         /// </summary>
         /// <returns></returns>
         public Index ZNext()
         {
-            if (Z + 1 > 2)
+            if (X + 1 > 2)
             {
                 return OutOfBoundsIndex;
             }
 
-            return new Index(X, Y, Z + 1);
+            return new Index(X + 1, Y, Z);
         }
 
         /// <summary>
-        /// Return the index one minus Z value, or out of bounds vertex
+        /// Returns the next index of the data matrix that accompanies an decrease in Z
         /// </summary>
         /// <returns></returns>
         public Index ZPrior()
         {
-            if (Z - 1 < -1)
+            if (X - 1 < 0)
             {
                 return OutOfBoundsIndex;
             }
 
-            return new Index(X, Y , Z + 1);
+            return new Index(X - 1, Y, Z);
         }
+        #endregion
 
         public bool Equals(Index other)
         {
@@ -231,6 +256,11 @@ namespace VertexGenerator.Utilities
         public override int GetHashCode()
         {
             return HashCode.Combine(X, Y, Z);
+        }
+
+        public override string ToString()
+        {
+            return $"[{X}, {Y}, {Z}]";
         }
     }
 }

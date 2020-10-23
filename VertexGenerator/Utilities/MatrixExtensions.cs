@@ -10,11 +10,11 @@ namespace VertexGenerator.Utilities
     {
         public static IEnumerable<ValueTuple<Index, Vertex>> TraverseMatrix(this Vertex[,,] matrix, int planesToTraverse = 3)
         {
-            for (var x = 0; x < matrix.GetLength(0); x++)
+            for (var z = 0; z < matrix.GetLength(0) && z < planesToTraverse; z++)
             {
-                for (var y = 0; y < matrix.GetLength(0); y++)
+                for (var x = 0; x < matrix.GetLength(0); x++)
                 {
-                    for (var z = 0; z < matrix.GetLength(0); z++)
+                    for (var y = 0; y < matrix.GetLength(0); y++)
                     {
                         var index = new Index(x,y,z);
                         yield return new ValueTuple<Index, Vertex>(index, matrix.At(index));
@@ -31,11 +31,11 @@ namespace VertexGenerator.Utilities
         public static IEnumerable<ValueTuple<Index, Vertex>> TraverseMatrixBackwards(this Vertex[,,] matrix, int planesToTraverse = 3)
         {
             var size = matrix.GetLength(0);
-            for (var x = size; x > -1 && planesToTraverse > -1; x--, planesToTraverse--)
+            for (var z = size - 1; z > -1 && planesToTraverse > -1; z--, planesToTraverse--)
             {
-                for (var y = size; y > -1; y--)
+                for (var x = size - 1; x > -1; x--)
                 {
-                    for (var z = size; z > -1; z--)
+                    for (var y = size -1 ; y > -1; y--)
                     {
                         var index = new Index(x, y, z);
                         yield return new ValueTuple<Index, Vertex>(index, matrix.At(index));
@@ -48,12 +48,19 @@ namespace VertexGenerator.Utilities
         {
             if (index.Equals(Index.OutOfBoundsIndex))
             {
-                // either destroy the cube or set up a state machine to modify the adjacent
-                throw new NotImplementedException(
-                    "Handling indexes that create out of bounds scenarios for cubes is not yet implemented");
+                return Vertex.OutOfBoundsVertex;
             }
 
-            return matrix[index.X, index.Y, index.Z];
+            try
+            {
+                return matrix[index.X, index.Y, index.Z];
+            }
+            catch (IndexOutOfRangeException ex)
+            {
+                Console.Write($"Caught index out of range error with index: {index}, and trace: {ex.StackTrace}");
+                //throw;
+                return Vertex.OutOfBoundsVertex;
+            }
         }
 
         public static bool TryGetXNext(this Vertex[,,] matrix, Index currentIndex, out Vertex vertex)

@@ -45,6 +45,12 @@ namespace VertexGenerator.Materials
             foreach (var invalidVertex in indexesOfInvalidVertices)
             {
                 var vertex = cubeFormCopy[invalidVertex];
+
+                if (vertex.IsOutOfBounds)
+                {
+                    return CubeForm.OutOfBoundsCubeForm;
+                }
+
                 var lowestNeighbor = invalidVertex.GetNeighborsOnCurrentPlane()
                                                   .OrderByDescending(neighbor => Math.Abs(vertex.Z - cubeFormCopy[neighbor].Z))
                                                   .First();

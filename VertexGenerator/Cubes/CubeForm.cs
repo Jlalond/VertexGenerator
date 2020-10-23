@@ -42,13 +42,16 @@ namespace VertexGenerator.Cubes
 
         public static CubeForm InvalidCubeForm { get; }
 
+        public static CubeForm OutOfBoundsCubeForm { get; }
+
         #endregion
 
         public IReadOnlyCollection<CubeDelta> Deltas => _deltas;
         public IReadOnlyCollection<MetaMaterial> ValidMaterials => _materials;
+        public HashSet<string> MetaData { get; }
         public int Id { get; }
         public Vertex[,,] ReadOnlyMatrix => CopyMatrix();
-        public bool IsValid => this == InvalidCubeForm;
+        public bool IsValid => this != InvalidCubeForm && this != OutOfBoundsCubeForm;
         public Vertex this[Index index] => _matrix.At(index);
 
         public Vertex[,,] MatrixCopy => CopyMatrix();
@@ -73,6 +76,9 @@ namespace VertexGenerator.Cubes
             Top(DefaultMatrix);
             Default = new CubeForm(DefaultMatrix);
             InvalidCubeForm = new CubeForm(new Vertex[0, 0, 0]);
+            InvalidCubeForm.MetaData.Add("DestroyCubeStep");
+            OutOfBoundsCubeForm = new CubeForm(new Vertex[0, 0, 0]);
+            OutOfBoundsCubeForm.MetaData.Add("BuildNeighborCubeStep");
         }
 
         static void Bottom(Vertex[,,] matrix)
@@ -103,45 +109,45 @@ namespace VertexGenerator.Cubes
         static void Middle(Vertex[,,] matrix)
         {
             // middle level, south west corner
-            matrix[0, 0, 0] = new Vertex(-1, -1, 0);
+            matrix[1, 0, 0] = new Vertex(-1, -1, 0);
             // middle level, southern edge
-            matrix[0, 0, 1] = new Vertex(0, -1, 0);
+            matrix[1, 0, 1] = new Vertex(0, -1, 0);
             // middle level, south east corner
-            matrix[0, 0, 2] = new Vertex(1, -1, 0);
+            matrix[1, 0, 2] = new Vertex(1, -1, 0);
             // middle level, middle row, western edge
-            matrix[0, 1, 0] = new Vertex(-1, 0, 0);
+            matrix[1, 1, 0] = new Vertex(-1, 0, 0);
             // middle level, middle row, middle index
-            matrix[0, 1, 1] = new Vertex(0, 0, 0);
+            matrix[1, 1, 1] = new Vertex(0, 0, 0);
             // middle level, middle row, eastern edge
-            matrix[0, 1, 2] = new Vertex(1, 0, 0);
+            matrix[1, 1, 2] = new Vertex(1, 0, 0);
             // middle level, top row, western edge
-            matrix[0, 2, 0] = new Vertex(-1, 1, 0);
+            matrix[1, 2, 0] = new Vertex(-1, 1, 0);
             // middle level, top row, middle index
-            matrix[0, 2, 1] = new Vertex(0, 1, 0);
+            matrix[1, 2, 1] = new Vertex(0, 1, 0);
             // middle level, top row, eastern corner
-            matrix[0, 2, 2] = new Vertex(1, 1, 0);
+            matrix[1, 2, 2] = new Vertex(1, 1, 0);
         }
 
         static void Top(Vertex[,,] matrix)
         {
             // middle level, south west corner
-            matrix[0, 0, 0] = new Vertex(-1, -1, 1);
+            matrix[2, 0, 0] = new Vertex(-1, -1, 1);
             // middle level, southern edge
-            matrix[0, 0, 1] = new Vertex(0, -1, 1);
+            matrix[2, 0, 1] = new Vertex(0, -1, 1);
             // middle level, south east corner
-            matrix[0, 0, 2] = new Vertex(1, -1, 1);
+            matrix[2, 0, 2] = new Vertex(1, -1, 1);
             // middle level, middle row, western edge
-            matrix[0, 1, 0] = new Vertex(-1, 0, 1);
+            matrix[2, 1, 0] = new Vertex(-1, 0, 1);
             // middle level, middle row, middle index
-            matrix[0, 1, 1] = new Vertex(0, 0, 1);
+            matrix[2, 1, 1] = new Vertex(0, 0, 1);
             // middle level, middle row, eastern edge
-            matrix[0, 1, 2] = new Vertex(1, 0, 1);
+            matrix[2, 1, 2] = new Vertex(1, 0, 1);
             // middle level, top row, western edge
-            matrix[0, 2, 0] = new Vertex(-1, 1, 1);
+            matrix[2, 2, 0] = new Vertex(-1, 1, 1);
             // middle level, top row, middle index
-            matrix[0, 2, 1] = new Vertex(0, 1, 1);
+            matrix[2, 2, 1] = new Vertex(0, 1, 1);
             // middle level, top row, eastern corner
-            matrix[0, 2, 2] = new Vertex(1, 1, 1);
+            matrix[2, 2, 2] = new Vertex(1, 1, 1);
         }
 
         #endregion
@@ -151,6 +157,7 @@ namespace VertexGenerator.Cubes
             _matrix = matrix;
             _deltas = new HashSet<CubeDelta>();
             _materials = new HashSet<MetaMaterial>();
+            MetaData = new HashSet<string>();
             _paged = false;
             Id = NextId;
         }
@@ -175,11 +182,11 @@ namespace VertexGenerator.Cubes
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
-        public async Task<IEnumerable<CubeForm>> PermutateAsync(Index index)
+        public IEnumerable<CubeForm> PermutateNewCube(Index index)
         {
             if (_paged)
             {
-                await Unpage();
+                Unpage();
             }
 
             return Permutate(index);
@@ -194,22 +201,8 @@ namespace VertexGenerator.Cubes
             }
 
             var vertex = _matrix[index.X, index.Y, index.Z];
-            // ReSharper disable once SuggestVarOrType_Elsewhere
-            var validDirections = new bool[3];
-            var i = 0;
-            foreach (var value in index)
-            {
-                if (Math.Abs(value) == 1)
-                {
-                    validDirections[i] = true;
-                }
-                else
-                {
-                    validDirections[i] = false;
-                }
-            }
 
-            foreach (var mutationTuple in vertex.GetMutations(validDirections))
+            foreach (var mutationTuple in vertex.GetMutations())
             {
                 //TODO: here we only modify a vertex, when in reality we need to modify the X,Y,Z +/- 1 depending
                 // so that we maintain the same distance between points
@@ -225,14 +218,15 @@ namespace VertexGenerator.Cubes
                     }
 
                     // Now that we know what the next vertex should be, we access it and see if we can apply the same change to it.
-                    var nextVertex = _matrix[nextIndex.X, nextIndex.Y, nextIndex.Z];
-                    var modifiedNextVertex = nextVertex.CoMutate(valueDelta);
+                    var nextVertex = _matrix.At(nextIndex);
+
+                        var modifiedNextVertex = nextVertex.CoMutate(valueDelta);
                     var coMutatedDelta = nextVertex.CalculateVectorDelta(modifiedNextVertex);
 
                     // We never want a vertex to exceed the next vertex or the bounds, as it will cause a mesh to double back on itself
                     // so if they are too close (within 10% of each other on any axis) we should destroy the cube if all the values fall below a certain value
                     // or redirect the impact depending on the material type. This is the most difficult part of this because a 'soil' should self level. This is to be explored later.
-                    if (Vertex.DistanceIsAboveThreshold(modifiedNextVertex, mutation))
+                    if (Vertex.DistanceIsAboveThreshold(modifiedNextVertex, mutation, mutationTuple.Item2))
                     {
                         continue;
                     }
@@ -255,7 +249,10 @@ namespace VertexGenerator.Cubes
 
                     MetaMaterialManager.CalculateMaterials(newCube);
 
-                    yield return newCube;
+                    if (newCube.IsValid)
+                    {
+                        yield return newCube;
+                    }
                 }
             }
         }
@@ -263,7 +260,7 @@ namespace VertexGenerator.Cubes
         public bool AddCubeDelta(IList<ValueTuple<Index, UtilityVector3>> deltas, CubeForm newCube)
         {
             var delta = new CubeDelta(this, deltas, newCube);
-            if (this.Deltas.Contains(delta) && newCube.IsValidCubeForm())
+            if (!this.Deltas.Contains(delta) && newCube.IsValidCubeForm())
             {
                 _deltas.Add(delta);
                 newCube._deltas.Add(delta);
@@ -285,11 +282,11 @@ namespace VertexGenerator.Cubes
         /// write the matrix to json
         /// </summary>
         /// <returns></returns>
-        public async Task Page()
+        public void Page()
         {
             if (_paged) return;
             _paged = true;
-            await File.WriteAllTextAsync(Path.Combine("./", Id.ToString()), JsonConvert.SerializeObject(_matrix));
+            File.WriteAllText(Path.Combine("./", Id.ToString() + ".json"), JsonConvert.SerializeObject(_matrix));
             _matrix = null;
         }
 
@@ -317,10 +314,10 @@ namespace VertexGenerator.Cubes
         /// Load the cube data from json
         /// </summary>
         /// <returns></returns>
-        private async Task Unpage()
+        private void Unpage()
         {
             if (!_paged) return;
-            var content = await File.ReadAllTextAsync(Path.Combine("./", Id.ToString()));
+            var content = File.ReadAllText(Path.Combine("./", Id.ToString() + ".json"));
             _matrix = JsonConvert.DeserializeObject<Vertex[,,]>(content);
             _paged = false;
         }
@@ -353,13 +350,20 @@ namespace VertexGenerator.Cubes
         /// <returns></returns>
         private bool IsValidCubeForm()
         {
+            if (this == InvalidCubeForm || this == OutOfBoundsCubeForm)
+            {
+                return true;
+            }
+
             var avg = 0.0;
             // compare all vertices from opposite ends of the Z plane
             for (int x = 0; x < _matrix.GetLength(0); x++)
             {
                 for (int y = 0; y < _matrix.GetLength(0); y++)
                 {
-                    avg += Math.Abs(_matrix[x, y, 0].Z - _matrix[x, y, 2].Z);
+                    var a = _matrix[x, y, 0].Z;
+                    var b = _matrix[x, y, 2].Z;
+                    avg += Math.Abs(_matrix[0, y, x].Z - _matrix[2, y, x].Z);
                 }
             }
 
@@ -375,7 +379,7 @@ namespace VertexGenerator.Cubes
             {
                 for (int z = 0; z < _matrix.GetLength(0); z++)
                 {
-                    avg += Math.Abs(_matrix[0, y, z].X - _matrix[2, y, z].X);
+                    avg += Math.Abs(_matrix[z, y, 0].X - _matrix[z, y, 2].X);
                 }
             }
 
@@ -398,6 +402,40 @@ namespace VertexGenerator.Cubes
             }
 
             return true;
+        }
+
+        public void PrettyPrint()
+        {
+            var primaryIdentifiers = new string[] {"Top", "Middle", "Bottom"};
+            var currentIdentifier = primaryIdentifiers[0];
+            var x = 2;
+            var z = 2;
+            Console.WriteLine("{0, -20}", "====================================================");
+            Console.Write("{0, -20}", currentIdentifier + "  " + primaryIdentifiers[(int)Math.Abs(x - 2)] + "  ");
+            foreach (var entry in _matrix.TraverseMatrixBackwards())
+            {
+                if (entry.Item1.X < x)
+                {
+                    Console.WriteLine();
+                    x = entry.Item1.X;
+                    Console.Write("{0, -20}", currentIdentifier + "  " + primaryIdentifiers[Math.Abs(x - 2)] + "  ");
+
+                }
+
+                if (entry.Item1.Z < z)
+                {
+                    z = entry.Item1.Z;
+                    x = 2;
+                    Console.WriteLine();
+                    currentIdentifier = primaryIdentifiers[Math.Abs(z - 2)];
+                    Console.Write("{0, -20}", currentIdentifier + "  " + primaryIdentifiers[(int)Math.Abs(0)] + "  ");
+                }
+
+                Console.Write("{0, -20}", entry.Item2);   
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("{0, -20}", "====================================================");
         }
 
     }   

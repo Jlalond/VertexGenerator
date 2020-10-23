@@ -61,5 +61,10 @@ namespace VertexGenerator.Utilities
         {
             return !(uFloat == value);
         }
+
+        public override string ToString()
+        {
+            return _value.ToString();
+        }
     }
 }

@@ -3,16 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using VertexGenerator.Cubes;
+using VertexGenerator.Utilities;
+using Index = VertexGenerator.Utilities.Index;
 
 namespace VertexGenerator.Materials
 {
     public static class MetaMaterialManager
     {
-        private static List<MetaMaterial> _metaMaterials;
+        private static readonly List<MetaMaterial> _metaMaterials;
         static MetaMaterialManager()
         {
             _metaMaterials = typeof(MetaMaterialManager)
-                            .Assembly.GetTypes().Where(t => typeof(MetaMaterial).IsAssignableFrom(t) && t.IsClass)
+                            .Assembly.GetTypes().Where(t => typeof(MetaMaterial).IsAssignableFrom(t) && t.IsClass && !t.IsAbstract)
                             .Select(t => (MetaMaterial) Activator.CreateInstance(t)).ToList();
         }
 
@@ -29,12 +31,20 @@ namespace VertexGenerator.Materials
                 if (!material.IsValid(cubeForm, out var invalidVertices))
                 {
                     var validatedCube = material.MakeValid(cubeForm.CopyMatrixToNewCubeForm(), invalidVertices);
-                    var deltas = cubeForm.CalculateDeltas(validatedCube).ToList();
-                    if (deltas.Any())
+                    if (validatedCube.IsValid)
                     {
-                        cubeForm.AddCubeDelta(deltas, validatedCube);
-                        validatedCube.AddMaterial(material);
+                        var deltas = cubeForm.CalculateDeltas(validatedCube).ToList();
+                        if (deltas.Any())
+                        {
+                            cubeForm.AddCubeDelta(deltas, validatedCube);
+                            validatedCube.AddMaterial(material);
+                        }
                     }
+                    else
+                    {
+                        cubeForm.AddCubeDelta(new List<(Index, UtilityVector3)>(), validatedCube);
+                    }
+
                 }
                 else
                 {
