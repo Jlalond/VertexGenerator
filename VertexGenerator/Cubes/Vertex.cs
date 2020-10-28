@@ -8,6 +8,7 @@ namespace VertexGenerator.Cubes
 {
     public readonly struct Vertex : IEnumerable<float>, IEquatable<Vertex>
     {
+        public static Vertex[,,] Matrix = new Vertex[3,3,3];
         public readonly UtilityFloat X;
         public readonly UtilityFloat Y;
         public readonly UtilityFloat Z;

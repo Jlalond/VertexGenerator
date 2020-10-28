@@ -286,7 +286,7 @@ namespace VertexGenerator.Cubes
         {
             if (_paged) return;
             _paged = true;
-            File.WriteAllText(Path.Combine("./", Id.ToString() + ".json"), JsonConvert.SerializeObject(_matrix));
+            FileHandler.PageCubeForm(this);
             _matrix = null;
         }
 
@@ -317,8 +317,7 @@ namespace VertexGenerator.Cubes
         private void Unpage()
         {
             if (!_paged) return;
-            var content = File.ReadAllText(Path.Combine("./", Id.ToString() + ".json"));
-            _matrix = JsonConvert.DeserializeObject<Vertex[,,]>(content);
+            _matrix = FileHandler.UnPageCubeForm(this);
             _paged = false;
         }
 
